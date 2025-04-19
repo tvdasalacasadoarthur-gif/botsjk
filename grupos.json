@@ -1,4 +1,10 @@
 {
-  "lavanderia": null,
-  "encomendas": null
+  "lavanderia": [
+    "120363099999999@g.us",
+    "120363088888888@g.us"
+  ],
+  "encomendas": [
+    "120363077777777@g.us",
+    "120363066666666@g.us"
+  ]
 }
