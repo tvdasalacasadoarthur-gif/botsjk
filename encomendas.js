@@ -2,7 +2,8 @@ const { google } = require("googleapis");
 const fs = require("fs");
 
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
-const CREDENTIALS = JSON.parse(fs.readFileSync("credenciais.json")); // credenciais da conta de serviço
+const CREDENTIALS = JSON.parse(process.env.CREDENCIAIS_JSON);
+
 const SHEET_ID = "1-1or4UJu64CTPE4D7dba0De4UOqqMvUBNf0bgWBtIRo"; // substitua pelo ID da planilha
 
 const auth = new google.auth.JWT(
