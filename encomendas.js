@@ -1,19 +1,18 @@
 const { google } = require("googleapis");
-const fs = require("fs");
 
 const SCOPES = ["https://www.googleapis.com/auth/spreadsheets"];
 const CREDENTIALS = JSON.parse(process.env.CREDENCIAIS_JSON);
 
-const SHEET_ID = "1-1or4UJu64CTPE4D7dba0De4UOqqMvUBNf0bgWBtIRo"; // substitua pelo ID da planilha
+const SHEET_ID = "1-1or4UJu64CTPE4D7dba0De4UOqqMvUBNf0bgWBtIRo";
 
-const auth = new google.auth.JWT(
-  CREDENTIALS.client_email,
-  null,
-  CREDENTIALS.private_key,
-  SCOPES
-);
-const sheets = google.sheets({ version: "v4", auth });
+const { GoogleAuth } = google.auth;
 
+const auth = new GoogleAuth({
+  credentials: CREDENTIALS,
+  scopes: SCOPES,
+});
+
+// Variáveis para estado das sessões e timeouts
 let estadosUsuarios = {};
 let timeoutUsuarios = {};
 const TEMPO_EXPIRACAO_MS = 10 * 60 * 1000;
@@ -27,11 +26,20 @@ function iniciarTimeout(idSessao) {
   }, TEMPO_EXPIRACAO_MS);
 }
 
+async function getSheetsClient() {
+  const client = await auth.getClient();
+  return google.sheets({ version: "v4", auth: client });
+}
+
 async function lerSheet(nomeAba) {
+  const sheets = await getSheetsClient();
+
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: SHEET_ID,
     range: `${nomeAba}!A1:Z1000`,
   });
+
+  if (!res.data.values || res.data.values.length === 0) return [];
 
   const [cabecalho, ...linhas] = res.data.values;
   return linhas.map((linha) =>
@@ -45,6 +53,8 @@ async function lerSheet(nomeAba) {
 }
 
 async function escreverNaSheet(dados, aba = "Página1") {
+  const sheets = await getSheetsClient();
+
   await sheets.spreadsheets.values.append({
     spreadsheetId: SHEET_ID,
     range: `${aba}!A1`,
@@ -53,12 +63,21 @@ async function escreverNaSheet(dados, aba = "Página1") {
   });
 }
 
+// Função para extrair texto da mensagem de forma robusta
+function extrairTextoMensagem(msg) {
+  if (!msg.message) return "";
+  if (msg.message.conversation) return msg.message.conversation.trim();
+  if (msg.message.extendedTextMessage)
+    return msg.message.extendedTextMessage.text.trim();
+  return "";
+}
+
 async function tratarMensagemEncomendas(sock, msg) {
   try {
     if (!msg.message || msg.key.fromMe || msg.messageStubType) return;
 
     const remetente = msg.key.remoteJid;
-    const textoUsuario = msg.message.conversation?.toLowerCase().trim() || "";
+    const textoUsuario = extrairTextoMensagem(msg).toLowerCase();
     const idSessao = remetente + "_" + (msg.key.participant || "");
     const escolha = parseInt(textoUsuario, 10);
 
@@ -230,7 +249,7 @@ async function tratarMensagemEncomendas(sock, msg) {
         const recebidoPor = textoUsuario;
         const enc = estado.encomendaSelecionada;
 
-        // ⚠️ Atualizar célula específica na planilha exige índice (não incluso aqui por simplificação)
+        // Append no Histórico (registro final)
         await escreverNaSheet(
           [enc.id, enc.nome, enc.data, enc.local, "Recebida", recebidoPor],
           "Histórico"
@@ -248,7 +267,7 @@ async function tratarMensagemEncomendas(sock, msg) {
         delete estadosUsuarios[idSessao];
     }
   } catch (error) {
-    console.error("❌ Erro no tratarMensagemEncomendas:", error.message);
+    console.error("❌ Erro no tratarMensagemEncomendas:", error);
   }
 }
 
