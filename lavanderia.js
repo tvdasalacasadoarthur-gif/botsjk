@@ -65,37 +65,45 @@ async function tratarMensagemLavanderia(sock, msg) {
   }
 
   // Opção 3: Iniciar Lavagem
-  else if (texto === "3") {
+else if (texto === "3") {
+    // Bloquear se for após as 20h
+    if (agora.hour() >= 20) {
+        await enviar({
+            text: `❌ ${nomeUsuario}, não é possível iniciar a lavagem após as 20h.\n🕗 As lavagens devem ser iniciadas entre 07h e 20h para garantir o funcionamento adequado e o respeito aos horários de silêncio.`
+        });
+        return;
+    }
+
     const tempoAvisoAntesDoFim = 10;
     const fim = agora.clone().add(2, "hours");
     const saudacao =
-      agora.hour() < 12
-        ? "Bom dia"
-        : agora.hour() < 18
-        ? "Boa tarde"
-        : "Boa noite";
+        agora.hour() < 12
+            ? "Bom dia"
+            : agora.hour() < 18
+                ? "Boa tarde"
+                : "Boa noite";
 
     lavagemAtiva = {
-      usuario: nomeUsuario,
-      numero: remetente,
-      inicio: agora.toDate(),
-      fim: fim.toDate(),
+        usuario: nomeUsuario,
+        numero: remetente,
+        inicio: agora.toDate(),
+        fim: fim.toDate(),
     };
 
     await enviar({
-      text: `${saudacao} ${nomeUsuario}! 🧺 Lavagem iniciada às ${formatarHorario(
-        agora
-      )}.\n⏱️ Termina às ${formatarHorario(fim)}`,
-      mentions: [usuarioId],
+        text: `${saudacao} ${nomeUsuario}! 🧺 Lavagem iniciada às ${formatarHorario(
+            agora
+        )}.\n⏱️ Termina às ${formatarHorario(fim)}`,
+        mentions: [usuarioId],
     });
 
     setTimeout(async () => {
-      await enviar({
-        text: `🔔 ${nomeUsuario}, sua lavagem vai finalizar em ${tempoAvisoAntesDoFim} minutos.`,
-        mentions: [usuarioId],
-      });
+        await enviar({
+            text: `🔔 ${nomeUsuario}, sua lavagem vai finalizar em ${tempoAvisoAntesDoFim} minutos.`,
+            mentions: [usuarioId],
+        });
     }, (120 - tempoAvisoAntesDoFim) * 60 * 1000);
-  }
+}
 
   // Opção 4: Finalizar Lavagem
   else if (texto === "4") {
