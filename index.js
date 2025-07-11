@@ -12,11 +12,12 @@ const express = require("express");
 const { tratarMensagemLavanderia } = require("./lavanderia");
 const { tratarMensagemEncomendas } = require("./encomendas");
 
+let sock; // 🔄 conexão global
 let grupos = { lavanderia: [], encomendas: [] };
 const caminhoGrupos = "grupos.json";
-let reconectando = false; // controle de reconexão
+let reconectando = false;
 
-// Carrega grupos previamente registrados
+// Carrega grupos registrados
 if (fs.existsSync(caminhoGrupos)) {
   grupos = JSON.parse(fs.readFileSync(caminhoGrupos, "utf-8"));
   console.log("✅ Grupos carregados:");
@@ -25,14 +26,25 @@ if (fs.existsSync(caminhoGrupos)) {
 }
 
 async function iniciar() {
+  // 🔌 Finaliza instância anterior, se existir
+  if (sock?.ev) {
+    try {
+      await sock.logout();
+      console.log("🧹 Sessão anterior encerrada com sucesso.");
+    } catch (e) {
+      console.warn("⚠️ Falha ao encerrar sessão anterior:", e.message);
+    }
+  }
+
   const { state, saveCreds } = await useMultiFileAuthState("auth");
   const { version } = await fetchLatestBaileysVersion();
 
-  const sock = makeWASocket({
+  sock = makeWASocket({
     version,
     auth: state,
     printQRInTerminal: true,
     logger: P({ level: "silent" }),
+    browser: ["JKBot", "Chrome", "120.0.0.0"] // 🧠 navegador personalizado
   });
 
   sock.ev.on("creds.update", saveCreds);
@@ -91,7 +103,7 @@ async function iniciar() {
     }
   });
 
-  // Atualização de conexão
+  // 🔄 Atualização de conexão
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect } = update;
 
@@ -99,12 +111,11 @@ async function iniciar() {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
       console.log(`⚠️ Conexão encerrada. Motivo: ${statusCode}`);
 
-      // Reconectar se não for logout
       if (!reconectando && statusCode !== DisconnectReason.loggedOut) {
         reconectando = true;
-        console.log("🔄 Tentando reconectar em 5 segundos...");
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        await iniciar();
+        console.log("🔄 Tentando reconectar em 15 segundos...");
+        await new Promise(resolve => setTimeout(resolve, 15000));
+        await iniciar(); // 🔁 reconecta com nova sessão
       } else {
         console.log("❌ Sessão encerrada. Escaneie o QR novamente.");
       }
@@ -115,10 +126,10 @@ async function iniciar() {
   });
 }
 
-// Inicia o bot
+// ▶️ Inicia o bot
 iniciar();
 
-// Web server para manter a instância viva (usado com UptimeRobot)
+// 🌐 Web server (UptimeRobot / Ping)
 const app = express();
 app.get("/", (req, res) => {
   res.send("🤖 Bot WhatsApp rodando com sucesso!");
