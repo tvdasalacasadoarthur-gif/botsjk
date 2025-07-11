@@ -1,4 +1,10 @@
-const { default: makeWASocket, useMultiFileAuthState, fetchLatestBaileysVersion } = require("@whiskeysockets/baileys");
+const {
+  default: makeWASocket,
+  useMultiFileAuthState,
+  fetchLatestBaileysVersion,
+  DisconnectReason
+} = require("@whiskeysockets/baileys");
+
 const P = require("pino");
 const fs = require("fs");
 const express = require("express");
@@ -8,6 +14,7 @@ const { tratarMensagemEncomendas } = require("./encomendas");
 
 let grupos = { lavanderia: [], encomendas: [] };
 const caminhoGrupos = "grupos.json";
+let reconectando = false; // controle de reconexão
 
 // Carrega grupos previamente registrados
 if (fs.existsSync(caminhoGrupos)) {
@@ -34,7 +41,6 @@ async function iniciar() {
     const msg = messages[0];
     const remetente = msg.key.remoteJid;
 
-    // Ignora mensagens inválidas
     if (
       !msg.message ||
       msg.key.fromMe ||
@@ -47,7 +53,6 @@ async function iniciar() {
       const metadata = await sock.groupMetadata(remetente);
       const nomeGrupo = metadata.subject.toLowerCase();
 
-      // Registro automático
       if (
         nomeGrupo.includes("lavanderia") &&
         !grupos.lavanderia.includes(remetente) &&
@@ -86,19 +91,34 @@ async function iniciar() {
     }
   });
 
-  sock.ev.on("connection.update", ({ connection }) => {
-    if (connection === "open") {
+  // Atualização de conexão
+  sock.ev.on("connection.update", async (update) => {
+    const { connection, lastDisconnect } = update;
+
+    if (connection === "close") {
+      const statusCode = lastDisconnect?.error?.output?.statusCode;
+      console.log(`⚠️ Conexão encerrada. Motivo: ${statusCode}`);
+
+      // Reconectar se não for logout
+      if (!reconectando && statusCode !== DisconnectReason.loggedOut) {
+        reconectando = true;
+        console.log("🔄 Tentando reconectar em 5 segundos...");
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        await iniciar();
+      } else {
+        console.log("❌ Sessão encerrada. Escaneie o QR novamente.");
+      }
+    } else if (connection === "open") {
+      reconectando = false;
       console.log("✅ Bot conectado ao WhatsApp!");
-    } else if (connection === "close") {
-      console.log("⚠️ Conexão encerrada. Reconectando...");
-      iniciar(); // reconectar automaticamente
     }
   });
 }
 
+// Inicia o bot
 iniciar();
 
-// Web server para manter o Render vivo
+// Web server para manter a instância viva (usado com UptimeRobot)
 const app = express();
 app.get("/", (req, res) => {
   res.send("🤖 Bot WhatsApp rodando com sucesso!");
