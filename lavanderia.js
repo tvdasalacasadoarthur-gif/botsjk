@@ -109,7 +109,7 @@ else if (texto === "3") {
   else if (texto === "4") {
     if (!lavagemAtiva || lavagemAtiva.numero !== remetente) {
       await enviar({
-        text: `⚠️ Nenhuma lavagem ativa ou você não está usando a máquina.`,
+       text: `⚠️ Perdi conexão, mais seu registro foi realizado, obrigado `,
       });
       return;
     }
