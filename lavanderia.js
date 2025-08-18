@@ -20,7 +20,27 @@ async function tratarMensagemLavanderia(sock, msg) {
     texto = msg.message.imageMessage.caption;
   }
 
-  const textoLower = texto.toLowerCase();
+  
+const textoLower = texto.toLowerCase();
+const usuarioId = msg.key.participant || remetente;
+const nomeUsuario = "@" + usuarioId.split("@")[0];
+const agora = moment().tz("America/Sao_Paulo");
+
+// Registrar mensagem no Google Sheets via SheetDB
+try {
+  await axios.post("https://sheetdb.io/api/v1/7x5ujfu3x3vyb", {
+    data: [
+      {
+        usuario: nomeUsuario,
+        mensagem: texto,
+        dataHora: agora.format("YYYY-MM-DD HH:mm:ss")
+      }
+    ]
+  });
+  console.log("✅ Mensagem registrada na planilha:", texto);
+} catch (err) {
+  console.error("❌ Erro ao registrar mensagem na planilha:", err.message);
+}
   const usuarioId = msg.key.participant || remetente;
   const nomeUsuario = "@" + usuarioId.split("@")[0];
   const agora = moment().tz("America/Sao_Paulo");
