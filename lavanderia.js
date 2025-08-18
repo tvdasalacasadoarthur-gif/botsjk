@@ -26,6 +26,11 @@ async function tratarMensagemLavanderia(sock, msg) {
   const agora = moment().tz("America/Sao_Paulo");
 
   // 📌 Registrar mensagem no Google Sheets via SheetDB
+  console.log("📤 Enviando para planilha:", {
+  usuario: nomeUsuario,
+  mensagem: texto,
+  dataHora: agora.format("YYYY-MM-DD HH:mm:ss")
+});
   try {
     await axios.post("https://sheetdb.io/api/v1/7x5ujfu3x3vyb", {
       data: [
