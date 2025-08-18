@@ -20,31 +20,28 @@ async function tratarMensagemLavanderia(sock, msg) {
     texto = msg.message.imageMessage.caption;
   }
 
-  
-const textoLower = texto.toLowerCase();
-const usuarioId = msg.key.participant || remetente;
-const nomeUsuario = "@" + usuarioId.split("@")[0];
-const agora = moment().tz("America/Sao_Paulo");
-
-// Registrar mensagem no Google Sheets via SheetDB
-try {
-  await axios.post("https://sheetdb.io/api/v1/7x5ujfu3x3vyb", {
-    data: [
-      {
-        usuario: nomeUsuario,
-        mensagem: texto,
-        dataHora: agora.format("YYYY-MM-DD HH:mm:ss")
-      }
-    ]
-  });
-  console.log("✅ Mensagem registrada na planilha:", texto);
-} catch (err) {
-  console.error("❌ Erro ao registrar mensagem na planilha:", err.message);
-}
+  const textoLower = texto.toLowerCase();
   const usuarioId = msg.key.participant || remetente;
   const nomeUsuario = "@" + usuarioId.split("@")[0];
   const agora = moment().tz("America/Sao_Paulo");
 
+  // 📌 Registrar mensagem no Google Sheets via SheetDB
+  try {
+    await axios.post("https://sheetdb.io/api/v1/7x5ujfu3x3vyb", {
+      data: [
+        {
+          usuario: nomeUsuario,
+          mensagem: texto,
+          dataHora: agora.format("YYYY-MM-DD HH:mm:ss"),
+        },
+      ],
+    });
+    console.log("✅ Mensagem registrada na planilha:", texto);
+  } catch (err) {
+    console.error("❌ Erro ao registrar mensagem na planilha:", err.message);
+  }
+
+  // Função para enviar mensagens no grupo
   const enviar = async (mensagem) => {
     try {
       await sock.sendMessage(remetente, mensagem);
@@ -53,6 +50,7 @@ try {
     }
   };
 
+  // -------- MENU --------
   if (textoLower === "menu" || textoLower === "iniciar") {
     await enviar({
       text: `📋 *Menu de Opções*:\n
@@ -72,64 +70,63 @@ try {
     return;
   }
 
-  // Opção 1: Dicas
+  // -------- OPÇÃO 1 --------
   else if (texto === "1") {
     await enviar({ text: "🧼 Dicas de uso: https://youtu.be/2O_PWz-0qic" });
   }
 
-  // Opção 2: Info Lavadora
+  // -------- OPÇÃO 2 --------
   else if (texto === "2") {
     await enviar({
       text: "🧾 *Informações técnicas da lavadora*\nLavadora de Roupas Electrolux\nCapacidade: 8,5Kg\nModelo: LT09E Top Load Turbo Agitação Super\nProgramas de Lavagem: 9\nNíveis de Água: 4\nCor: Branca\n*CARACTERÍSTICAS*\nCapacidade (kg de roupas): 8,5Kg\nAcesso ao cesto: Superior\nÁgua quente: Não\nEnxágues: 1\nCentrifugação: Sim\nDispenser para sabão: Sim\nDispenser para amaciante: Sim\nDispenser para alvejante: Sim\nElimina fiapos: Sim - através do filtro\nNíveis de água: Extra, Baixo, Médio, Alto\nESPECIFICAÇÕES TÉCNICAS\nConsumo: (kWh) 0,25kWh/ciclo\nControles: Eletromecânicos\nVelocidade de centrifugação: (rpm) 660\nTensão/Voltagem: 220V\nAcabamento do cesto: Polipropileno\nConsumo de Energia: A (menos 25% de consumo)\nConsumo de água: 112 litros por ciclo\nEficiência Energética: A",
     });
   }
 
-  // Opção 3: Iniciar Lavagem
-else if (texto === "3") {
-    // Bloquear se for após as 20h
+  // -------- OPÇÃO 3: INICIAR --------
+  else if (texto === "3") {
     if (agora.hour() >= 20) {
-        await enviar({
-            text: `❌ ${nomeUsuario}, não é possível iniciar a lavagem após as 20h.\n🕗 As lavagens devem ser iniciadas entre 07h e 20h para garantir o funcionamento adequado e o respeito aos horários de silêncio.`
-        });
-        return;
+      await enviar({
+        text: `❌ ${nomeUsuario}, não é possível iniciar a lavagem após as 20h.\n🕗 As lavagens devem ser iniciadas entre 07h e 20h.`,
+      });
+      return;
     }
 
     const tempoAvisoAntesDoFim = 10;
     const fim = agora.clone().add(2, "hours");
     const saudacao =
-        agora.hour() < 12
-            ? "Bom dia"
-            : agora.hour() < 18
-                ? "Boa tarde"
-                : "Boa noite";
+      agora.hour() < 12
+        ? "Bom dia"
+        : agora.hour() < 18
+        ? "Boa tarde"
+        : "Boa noite";
 
     lavagemAtiva = {
-        usuario: nomeUsuario,
-        numero: remetente,
-        inicio: agora.toDate(),
-        fim: fim.toDate(),
+      usuario: nomeUsuario,
+      numero: remetente,
+      inicio: agora.toDate(),
+      fim: fim.toDate(),
     };
 
     await enviar({
-        text: `${saudacao} ${nomeUsuario}! 🧺 Lavagem iniciada às ${formatarHorario(
-            agora
-        )}.\n⏱️ Termina às ${formatarHorario(fim)}`,
-        mentions: [usuarioId],
+      text: `${saudacao} ${nomeUsuario}! 🧺 Lavagem iniciada às ${formatarHorario(
+        agora
+      )}.\n⏱️ Termina às ${formatarHorario(fim)}`,
+      mentions: [usuarioId],
     });
 
     setTimeout(async () => {
-        await enviar({
-            text: `🔔 ${nomeUsuario}, sua lavagem vai finalizar em ${tempoAvisoAntesDoFim} minutos.`,
-            mentions: [usuarioId],
-        });
+      await enviar({
+        text: `🔔 ${nomeUsuario}, sua lavagem vai finalizar em ${tempoAvisoAntesDoFim} minutos.`,
+        mentions: [usuarioId],
+      });
     }, (120 - tempoAvisoAntesDoFim) * 60 * 1000);
-}
+  }
 
-  // Opção 4: Finalizar Lavagem
+  // -------- OPÇÃO 4: FINALIZAR --------
   else if (texto === "4") {
     if (!lavagemAtiva || lavagemAtiva.numero !== remetente) {
       await enviar({
-       text: `⚠️ Perdi conexão, mais seu registro foi realizado, obrigado `,
+        text: `⚠️ Perdi conexão, mas seu registro foi realizado.`,
       });
       return;
     }
@@ -161,7 +158,7 @@ else if (texto === "3") {
     }
   }
 
-  // Opção 5: Entrar na Fila
+  // -------- OPÇÃO 5: ENTRAR NA FILA --------
   else if (texto === "5") {
     if (filaDeEspera.includes(remetente)) {
       const posicao = filaDeEspera.indexOf(remetente) + 1;
@@ -174,7 +171,7 @@ else if (texto === "3") {
 
     if (!lavagemAtiva) {
       await enviar({
-        text: `✅ A máquina está *livre* no momento.\n👉 Use a opção *3* para iniciar a lavagem.`,
+        text: `✅ A máquina está *livre*.\n👉 Use a opção *3* para iniciar a lavagem.`,
       });
       return;
     }
@@ -183,12 +180,12 @@ else if (texto === "3") {
     const posicao = filaDeEspera.indexOf(remetente) + 1;
     const totalNaFila = filaDeEspera.length;
     await enviar({
-      text: `📝 ${nomeUsuario}, você foi adicionado à fila!\n🔢 Posição: ${posicao}\n👥 Total na fila: ${totalNaFila} pessoa(s)`,
+      text: `📝 ${nomeUsuario}, você foi adicionado à fila!\n🔢 Posição: ${posicao}\n👥 Total na fila: ${totalNaFila}`,
       mentions: [usuarioId],
     });
   }
 
-  // Opção 6: Sair da Fila
+  // -------- OPÇÃO 6: SAIR DA FILA --------
   else if (texto === "6") {
     const indice = filaDeEspera.indexOf(remetente);
     if (indice === -1) {
@@ -212,11 +209,11 @@ else if (texto === "3") {
     }
   }
 
-  // Opção 7: Sortear roupas
+  // -------- OPÇÃO 7: SORTEAR ROUPAS --------
   else if (texto === "7") {
     const roupasDisponiveis = [
-      { nome: "Peça intima - masculina", peso: 0.1 },
-      { nome: "Peça intima - feminina", peso: 0.1 },
+      { nome: "Peça íntima - masculina", peso: 0.1 },
+      { nome: "Peça íntima - feminina", peso: 0.1 },
       { nome: "Sutiã", peso: 0.15 },
       { nome: "Meia", peso: 0.05 },
       { nome: "Camiseta", peso: 0.2 },
@@ -227,11 +224,11 @@ else if (texto === "3") {
       { nome: "Lençol", peso: 0.5 },
       { nome: "Calça Legging", peso: 0.5 },
       { nome: "Blusa de Frio", peso: 0.6 },
-      { nome: "Camiseta de manga longa", peso: 0.3 },
+      { nome: "Camiseta manga longa", peso: 0.3 },
       { nome: "Bermuda", peso: 0.4 },
       { nome: "Shorts", peso: 0.3 },
-      { nome: "Blusa de frio masculina", peso: 0.7 },
-      { nome: "Blusa de frio feminina", peso: 0.7 },
+      { nome: "Blusa de frio masc.", peso: 0.7 },
+      { nome: "Blusa de frio fem.", peso: 0.7 },
       { nome: "Saia", peso: 0.3 },
       { nome: "Vestido", peso: 0.4 },
       { nome: "Pijama", peso: 0.6 },
@@ -263,20 +260,20 @@ else if (texto === "3") {
       .join("\n");
 
     await enviar({
-      text: `🧺 Lavagem sorteada (até 8kg):\n${mensagemRoupas}\n\nPeso total estimado: ${pesoAtual.toFixed(
+      text: `🧺 Lavagem sorteada (até 8kg):\n${mensagemRoupas}\n\nPeso total: ${pesoAtual.toFixed(
         2
       )}kg`,
     });
   }
 
-  // Opção 8: Horário de Funcionamento
+  // -------- OPÇÃO 8 --------
   else if (texto === "8") {
     await enviar({
-      text: "⏰ *Horário de Funcionamento*\n🗓️ Segunda a Domingo\n🕗 Das 07h às 22h",
+      text: "⏰ *Horário de Funcionamento*\n🗓️ Segunda a Domingo\n🕗 07h às 22h",
     });
   }
 
-  // Opção 9: Previsão do Tempo
+  // -------- OPÇÃO 9 --------
   else if (texto === "9") {
     try {
       const { data } = await axios.get(
@@ -284,7 +281,7 @@ else if (texto === "3") {
       );
       const info = data.results;
       await enviar({
-        text: `🌤️ *Previsão do Tempo - ${info.city}*\n\n📅 *Data:* ${info.date}\n🌡️ *Temperatura:* ${info.temp}°C\n☁️ *Condição:* ${info.description}\n💨 *Vento:* ${info.wind_speedy}\n🌅 *Nascer do sol:* ${info.sunrise}\n🌇 *Pôr do sol:* ${info.sunset}`,
+        text: `🌤️ *Previsão - ${info.city}*\n📅 ${info.date}\n🌡️ ${info.temp}°C\n☁️ ${info.description}\n💨 Vento: ${info.wind_speedy}\n🌅 Nascer: ${info.sunrise}\n🌇 Pôr: ${info.sunset}`,
       });
     } catch (err) {
       console.error(err.message);
@@ -292,10 +289,10 @@ else if (texto === "3") {
     }
   }
 
-  // Opção 10: Coleta de Lixo
+  // -------- OPÇÃO 10 --------
   else if (texto === "10" || texto === "🔟") {
     await enviar({
-      text: "🗑️ *Dias de Coleta de Lixo:*\n\n🗓️ *Terça, Quinta e Sábado*",
+      text: "🗑️ *Coleta de Lixo:*\n🗓️ Terça, Quinta e Sábado",
     });
   }
 }
