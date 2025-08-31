@@ -2,6 +2,7 @@ const axios = require("axios");
 
 const URL_SHEETDB_ENCOMENDAS = "https://sheetdb.io/api/v1/g6f3ljg6px6yr";
 const URL_SHEETDB_HISTORICO = "https://sheetdb.io/api/v1/7x1nynb2lzcw6";
+const URL_SHEETDB_LOG = "https://sheetdb.io/api/v1/g30g3cmw5o8tu"; // <-- NOVO: planilha de log
 
 let estadosUsuarios = {};
 let timeoutUsuarios = {};
@@ -21,9 +22,27 @@ async function tratarMensagemEncomendas(sock, msg) {
     if (!msg.message || msg.key.fromMe || msg.messageStubType) return;
 
     const remetente = msg.key.remoteJid;
-    const textoUsuario = msg.message.conversation?.toLowerCase().trim() || "";
+    const textoUsuario = msg.message.conversation?.trim() || "";
     const idSessao = remetente + "_" + (msg.key.participant || "");
-    const escolha = parseInt(textoUsuario, 10);
+
+    // --- NOVO BLOCO: Enviar toda mensagem para a planilha de LOG ---
+    try {
+      const usuario = msg.pushName || "Desconhecido";
+      const dataHora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
+      await axios.post(URL_SHEETDB_LOG, [
+        {
+          usuario: usuario,
+          mensagem: textoUsuario,
+          dataHora: dataHora,
+        }
+      ]);
+    } catch (err) {
+      console.error("Erro ao salvar log no SheetDB:", err.message);
+    }
+    // --- FIM DO NOVO BLOCO ---
+
+    const escolha = parseInt(textoUsuario.toLowerCase(), 10);
 
     const enviar = async (mensagem) => {
       await sock.sendMessage(
@@ -87,7 +106,6 @@ async function tratarMensagemEncomendas(sock, msg) {
           estado.etapa = "informarID";
           await enviar("📦 Qual o ID da encomenda que deseja confirmar?");
         } else if (escolha === 4) {
-          // CONSULTA A PLANILHA DE HISTÓRICO PELA NOVA URL
           const { data: historico } = await axios.get(URL_SHEETDB_HISTORICO);
 
           const preenchidos = historico.filter((linha) =>
@@ -125,7 +143,7 @@ async function tratarMensagemEncomendas(sock, msg) {
         break;
 
       case "obterNome":
-        estado.nome = textoUsuario;
+        estado.nome = textoUsuario.toLowerCase();
         estado.etapa = "obterData";
         await enviar("Qual a data estimada de entrega? (Ex: dia/mês/ano)");
         break;
