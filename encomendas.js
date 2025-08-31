@@ -2,7 +2,7 @@ const axios = require("axios");
 
 const URL_SHEETDB_ENCOMENDAS = "https://sheetdb.io/api/v1/g6f3ljg6px6yr";
 const URL_SHEETDB_HISTORICO = "https://sheetdb.io/api/v1/7x1nynb2lzcw6";
-const URL_SHEETDB_LOG = "https://sheetdb.io/api/v1/g30g3cmw5o8tu"; // <-- NOVO: planilha de log
+const URL_SHEETDB_LOG = "https://sheetdb.io/api/v1/g30g3cmw5o8tu"; // planilha de log
 
 let estadosUsuarios = {};
 let timeoutUsuarios = {};
@@ -19,37 +19,43 @@ function iniciarTimeout(idSessao) {
 
 async function tratarMensagemEncomendas(sock, msg) {
   try {
-    if (!msg.message || msg.key.fromMe || msg.messageStubType) return;
+    if (!msg.message || msg.messageStubType) return;
 
     const remetente = msg.key.remoteJid;
     const textoUsuario = msg.message.conversation?.trim() || "";
     const idSessao = remetente + "_" + (msg.key.participant || "");
+    const usuario = msg.pushName || "Desconhecido";
+    const dataHora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
 
-    // --- NOVO BLOCO: Enviar toda mensagem para a planilha de LOG ---
-    try {
-      const usuario = msg.pushName || "Desconhecido";
-      const dataHora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
-
-      await axios.post(URL_SHEETDB_LOG, [
-        {
-          usuario: usuario,
-          mensagem: textoUsuario,
-          dataHora: dataHora,
-        }
-      ]);
-    } catch (err) {
-      console.error("Erro ao salvar log no SheetDB:", err.message);
+    // --- LOGA mensagem recebida (seja de usuário ou do bot) ---
+    if (!msg.key.fromMe && textoUsuario) {
+      try {
+        await axios.post(URL_SHEETDB_LOG, [
+          { usuario, mensagem: textoUsuario, origem: "usuário", dataHora }
+        ]);
+      } catch (err) {
+        console.error("Erro ao salvar log do usuário:", err.message);
+      }
     }
-    // --- FIM DO NOVO BLOCO ---
+
+    // Função que envia e também loga a mensagem do BOT
+    const enviar = async (mensagem) => {
+      const conteudo = typeof mensagem === "string" ? { text: mensagem } : mensagem;
+
+      // envia no WhatsApp
+      await sock.sendMessage(remetente, conteudo);
+
+      // registra no LOG
+      try {
+        await axios.post(URL_SHEETDB_LOG, [
+          { usuario: "BOT", mensagem: conteudo.text || JSON.stringify(conteudo), origem: "bot", dataHora }
+        ]);
+      } catch (err) {
+        console.error("Erro ao salvar log do BOT:", err.message);
+      }
+    };
 
     const escolha = parseInt(textoUsuario.toLowerCase(), 10);
-
-    const enviar = async (mensagem) => {
-      await sock.sendMessage(
-        remetente,
-        typeof mensagem === "string" ? { text: mensagem } : mensagem
-      );
-    };
 
     const sessaoAtiva = estadosUsuarios[idSessao];
     if (!sessaoAtiva && textoUsuario !== "0") return;
@@ -109,9 +115,7 @@ async function tratarMensagemEncomendas(sock, msg) {
           const { data: historico } = await axios.get(URL_SHEETDB_HISTORICO);
 
           const preenchidos = historico.filter((linha) =>
-            Object.values(linha).some(
-              (valor) => valor?.toString().trim() !== ""
-            )
+            Object.values(linha).some((valor) => valor?.toString().trim() !== "")
           );
 
           if (!preenchidos.length) {
@@ -161,22 +165,17 @@ async function tratarMensagemEncomendas(sock, msg) {
         }
 
         estado.data = `${String(dia).padStart(2, "0")}/${String(mes).padStart(
-          2,
-          "0"
+          2, "0"
         )}/${ano}`;
         estado.etapa = "obterLocal";
-        await enviar(
-          "Onde a compra foi realizada? (Ex: Shopee, Mercado Livre)"
-        );
+        await enviar("Onde a compra foi realizada? (Ex: Shopee, Mercado Livre)");
         break;
       }
 
       case "obterLocal": {
         estado.local = textoUsuario;
         const { data: todas } = await axios.get(URL_SHEETDB_ENCOMENDAS);
-        const ids = todas
-          .map((e) => parseInt(e.id, 10))
-          .filter((i) => !isNaN(i));
+        const ids = todas.map((e) => parseInt(e.id, 10)).filter((i) => !isNaN(i));
         const proximoId = (Math.max(0, ...ids) + 1).toString();
 
         await axios.post(URL_SHEETDB_ENCOMENDAS, [
