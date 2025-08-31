@@ -8,6 +8,7 @@ const {
 const P = require("pino");
 const fs = require("fs");
 const express = require("express");
+const axios = require("axios");
 
 const { tratarMensagemLavanderia } = require("./lavanderia");
 const { tratarMensagemEncomendas } = require("./encomendas");
@@ -100,6 +101,51 @@ async function iniciar() {
       }
     } catch (e) {
       console.error("❗ Erro ao tratar mensagem:", e.message);
+    }
+  });
+
+  // 🔔 Detecta entrada/saída de participantes no grupo
+  sock.ev.on("group-participants.update", async (update) => {
+    try {
+      const metadata = await sock.groupMetadata(update.id);
+
+      for (let participante of update.participants) {
+        const numero = participante.split("@")[0];
+        const dataHora = new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" });
+
+        if (update.action === "add") {
+          // ✅ Mensagem de boas-vindas
+          await sock.sendMessage(update.id, {
+            text: `👋 Olá @${numero}!\n\nSeja bem-vindo(a) ao grupo *${metadata.subject}* 🎉\n\nDigite *menu* para ver as opções.`,
+            mentions: [participante],
+          });
+          console.log(`✅ Novo integrante no grupo ${metadata.subject}: ${numero}`);
+
+          // Salva no SheetDB
+          await axios.post("https://sheetdb.io/api/v1/7x5ujfu3x3vyb", {
+            data: [
+              { usuario: `@${numero}`, mensagem: "Entrou no grupo", dataHora }
+            ]
+          });
+
+        } else if (update.action === "remove") {
+          // ❌ Mensagem de despedida
+          await sock.sendMessage(update.id, {
+            text: `👋 @${numero} saiu do grupo *${metadata.subject}*`,
+            mentions: [participante],
+          });
+          console.log(`ℹ️ Integrante saiu do grupo ${metadata.subject}: ${numero}`);
+
+          // Salva no SheetDB
+          await axios.post("https://sheetdb.io/api/v1/7x5ujfu3x3vyb", {
+            data: [
+              { usuario: `@${numero}`, mensagem: "Saiu do grupo", dataHora }
+            ]
+          });
+        }
+      }
+    } catch (err) {
+      console.error("❌ Erro no evento de participante:", err.message);
     }
   });
 
