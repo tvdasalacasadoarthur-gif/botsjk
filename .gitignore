@@ -4,3 +4,4 @@ auth/
 .git/
 *.log
 /tmp/
+.old_files/
