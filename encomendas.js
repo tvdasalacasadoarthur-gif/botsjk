@@ -2,7 +2,7 @@ const axios = require("axios");
 
 const URL_SHEETDB_ENCOMENDAS = "https://sheetdb.io/api/v1/g6f3ljg6px6yr";
 const URL_SHEETDB_HISTORICO = "https://sheetdb.io/api/v1/7x1nynb2lzcw6";
-const URL_SHEETDB_LOG = "https://sheetdb.io/api/v1/g30g3cmw5o8tu"; // planilha de log
+const URL_SHEETDB_LOG = "https://sheetdb.io/api/v1/8u96k45bg8b1x"; // planilha de log
 
 let estadosUsuarios = {};
 let timeoutUsuarios = {};
