@@ -32,7 +32,7 @@ async function tratarMensagemLavanderia(sock, msg) {
     dataHora: agora.format("YYYY-MM-DD HH:mm:ss")
   });
   try {
-    await axios.post("https://sheetdb.io/api/v1/7x5ujfu3x3vyb", {
+    await axios.post("https://sheetdb.io/api/v1/6h68ahmnmf21d ", {
       data: [
         {
           usuario: nomeUsuario,
