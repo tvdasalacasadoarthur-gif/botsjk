@@ -91,20 +91,27 @@ async function iniciar() {
 
     console.log("🔔 Mensagem recebida de", remetente);
 
+    //try {
+      //if (grupos.lavanderia.includes(remetente)) {
+        //console.log("💧 Chamando tratarMensagemLavanderia");
+       // await tratarMensagemLavanderia(sock, msg);
+     // } else if (grupos.encomendas.includes(remetente)) {
+    // console.log("📦 Chamando tratarMensagemEncomendas");
+     //   await tratarMensagemEncomendas(sock, msg);
+     // } else {
+       // console.log("🔍 Mensagem de grupo não registrado:", remetente);
+     // }
+   // } catch (e) {
+     // console.error("❗ Erro ao tratar mensagem:", e.message);
+   // }// 🔓 Deixa qualquer grupo usar os módulos
+  //});
     try {
-      if (grupos.lavanderia.includes(remetente)) {
-        console.log("💧 Chamando tratarMensagemLavanderia");
-        await tratarMensagemLavanderia(sock, msg);
-      } else if (grupos.encomendas.includes(remetente)) {
-        console.log("📦 Chamando tratarMensagemEncomendas");
-        await tratarMensagemEncomendas(sock, msg);
-      } else {
-        console.log("🔍 Mensagem de grupo não registrado:", remetente);
-      }
-    } catch (e) {
-      console.error("❗ Erro ao tratar mensagem:", e.message);
-    }
-  });
+  await tratarMensagemLavanderia(sock, msg);
+  await tratarMensagemEncomendas(sock, msg);
+} catch (e) {
+  console.error("❗ Erro ao tratar mensagem:", e.message);
+}
+
 
   // 🔔 Detecta entrada/saída de participantes no grupo
   sock.ev.on("group-participants.update", async (update) => {
